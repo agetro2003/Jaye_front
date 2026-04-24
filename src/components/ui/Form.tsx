@@ -3,9 +3,10 @@ import { Music } from "lucide-react";
 interface FormProps {
     children: React.ReactNode;
     label: string;
-}
+    onSubmit?: (e: React.FormEvent) => void;
+  }
 
-export default function Form({ children, label }: FormProps) {
+export default function Form({ children, label, onSubmit }: FormProps) {
     return (
             <div className="bg-[#f8f9fc] w-full max-w-[420px] p-4 md:p-5 rounded-3xl shadow-xl">
         
@@ -23,7 +24,7 @@ export default function Form({ children, label }: FormProps) {
         </div>
 
         {/* Formulario */}
-        <form className="space-y-3">
+        <form className="space-y-3" onSubmit={onSubmit}>
             {children}
 
         </form>
