@@ -3,7 +3,8 @@ import Login from "./pages/Login"
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
-
+import Folders from './pages/Folders';
+import FolderDetails from './pages/FolderDetails';
 
 const router = createBrowserRouter([
   {
@@ -14,16 +15,21 @@ const router = createBrowserRouter([
     path: '/register',
     element: <Register />,
   },
-  {
-    path: '/dashboard',
-    element: <Dashboard />,
-  },
+
   {
     element: <ProtectedRoute />, 
     children: [
       {
         path: '/dashboard',
         element: <Dashboard />,
+      },
+     {
+        path: '/folders',
+        element: <Folders />, 
+      },
+      { 
+        path: '/folder/:id', 
+        element: <FolderDetails /> 
       },
     ],
   },
