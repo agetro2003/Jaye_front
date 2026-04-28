@@ -1,16 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Folder } from 'lucide-react';
 import FolderCard from '../ui/FolderCard';
 import { Link } from 'react-router-dom';
-import api from '../../api/axios';
+import { EditFolderModal, DeleteFolderModal } from '../folder/FolderModals';
+import { useFolders } from '../../hooks/useFolders';
 
 
-interface ApiFolder {
-  folder_id: number;
-  folder_name: string;
-  user_id: number;
-  song_count: number;
-}
 
 const PALETTE = [
   'bg-[#b93838]', 'bg-[#2da431]', 'bg-[#3734a9]', 'bg-[#af9e26]', 'bg-[#a5326b]',
@@ -19,35 +14,19 @@ const PALETTE = [
 export default function FolderSection() {
   const scrollRef = useRef<HTMLDivElement>(null);
   
-// Estados de la API
-  const [folders, setFolders] = useState<ApiFolder[]>([]); 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string>('');
+    const { folders, isLoading, error, updateFolderLocally, removeFolderLocally } = useFolders();
+  
+    // Estados visuales mínimos para abrir/cerrar modales
+    const [editModal, setEditModal] = useState({ isOpen: false, id: null as number | null, name: '' });
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null as number | null });
 
-
+    
 //Estados del scroll
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
 
 
-  //Efecto del API
-  useEffect(() => {
-    const fetchFolders = async () => {
-      try {
-        const response = await api.get('/folders/');
-        // Guardamos los datos reales en el estado
-        setFolders(response.data);
-      } catch (err) {
-        console.error("Error cargando carpetas:", err);
-        setError('No se pudieron cargar las carpetas.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchFolders();
-  }, []);
 
   // Funciones que simulan el arrastre
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -58,6 +37,8 @@ export default function FolderSection() {
     setScrollLeft(scrollRef.current.scrollLeft);
   };
 
+
+  
   const handleMouseLeave = () => {
     setIsDragging(false); // Si el ratón sale del área, soltamos
   };
@@ -72,7 +53,7 @@ export default function FolderSection() {
     
     // Calculamos cuánto se ha movido el ratón
     const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX) * 1.5; // El 1.5 es la velocidad (puedes subirlo a 2 si lo quieres más rápido)
+    const walk = (x - startX) * 1.5; // El 1.5 es la velocidad 
     
     // Movemos el scroll
     scrollRef.current.scrollLeft = scrollLeft - walk;
@@ -122,10 +103,29 @@ export default function FolderSection() {
                   name={folder.folder_name}
                   count={folder.song_count} // Aquí usamos el campo real de SQLAlchemy
                   colorClass={color}
+                  onEditClick={(id, name) => setEditModal({ isOpen: true, id, name })} // Pasamos la función para abrir el modal de edición
+                  onDeleteClick={(id) => setDeleteModal({ isOpen: true, id })} // Pasamos la función para abrir el modal de eliminación
                 />
               </div>
             );
           })}
+
+          <EditFolderModal 
+                 key={editModal.id} // <--- ¡LA MAGIA! Si el ID cambia, el modal se reinicia desde cero
+                 isOpen={editModal.isOpen}
+                 folderId={editModal.id}
+                 initialName={editModal.name}
+                 onClose={() => setEditModal({ ...editModal, isOpen: false })}
+                 onSuccess={updateFolderLocally}
+               />
+         
+               {/* --- MODAL PARA ELIMINAR --- */}
+               <DeleteFolderModal 
+                 isOpen={deleteModal.isOpen}
+                 folderId={deleteModal.id}
+                 onClose={() => setDeleteModal({ ...deleteModal, isOpen: false })}
+                 onSuccess={removeFolderLocally}
+               />
         </div>
       )}
       
