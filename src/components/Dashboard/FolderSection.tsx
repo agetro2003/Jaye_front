@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
 import { Folder } from 'lucide-react';
-import FolderCard from '../ui/FolderCard';
 import { Link } from 'react-router-dom';
-import { EditFolderModal, DeleteFolderModal } from '../folder/FolderModals';
+import FolderCard from '../ui/FolderCard';
+import { EditFolderModal } from '../folder/FolderModals';
+import DeleteModal from '../ui/DeleteModal'; // <-- Importamos nuestro nuevo modal universal
 import { useFolders } from '../../hooks/useFolders';
-
-
+import api from '../../api/axios';
+import { getApiError } from '../../utils/errorHandler'; // <-- Usamos tu manejador de errores
 
 const PALETTE = [
   'bg-[#b93838]', 'bg-[#2da431]', 'bg-[#3734a9]', 'bg-[#af9e26]', 'bg-[#a5326b]',
@@ -14,69 +15,71 @@ const PALETTE = [
 export default function FolderSection() {
   const scrollRef = useRef<HTMLDivElement>(null);
   
-    const { folders, isLoading, error, updateFolderLocally, removeFolderLocally } = useFolders();
+  const { folders, isLoading, error, updateFolderLocally, removeFolderLocally } = useFolders();
   
-    // Estados visuales mínimos para abrir/cerrar modales
-    const [editModal, setEditModal] = useState({ isOpen: false, id: null as number | null, name: '' });
-    const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null as number | null });
+  // Estados visuales mínimos para abrir/cerrar modales
+  const [editModal, setEditModal] = useState({ isOpen: false, id: null as number | null, name: '' });
+  
+  // Modificamos un poco el estado de borrado para guardar también el nombre y mostrarlo en la alerta
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null as number | null, name: '' });
+  const [isDeleting, setIsDeleting] = useState(false); // Estado de carga del botón rojo
 
-    
-//Estados del scroll
+  // Estados del scroll
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
-
-
 
   // Funciones que simulan el arrastre
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
     if (!scrollRef.current) return;
-    // Guardamos la posición inicial del clic
     setStartX(e.pageX - scrollRef.current.offsetLeft);
     setScrollLeft(scrollRef.current.scrollLeft);
   };
 
-
-  
-  const handleMouseLeave = () => {
-    setIsDragging(false); // Si el ratón sale del área, soltamos
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false); // Al soltar el clic, terminamos de arrastrar
-  };
+  const handleMouseLeave = () => setIsDragging(false);
+  const handleMouseUp = () => setIsDragging(false);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || !scrollRef.current) return;
-    e.preventDefault(); // Evita que el navegador seleccione texto por accidente
-    
-    // Calculamos cuánto se ha movido el ratón
+    e.preventDefault();
     const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX) * 1.5; // El 1.5 es la velocidad 
-    
-    // Movemos el scroll
+    const walk = (x - startX) * 1.5;
     scrollRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  // --- NUEVA FUNCIÓN DE BORRADO ---
+  const handleConfirmDelete = async () => {
+    if (!deleteModal.id) return;
+    
+    setIsDeleting(true);
+    try {
+      await api.delete(`/folders/${deleteModal.id}`);
+      removeFolderLocally(deleteModal.id); // Actualizamos la UI al instante
+      setDeleteModal({ isOpen: false, id: null, name: '' }); // Cerramos modal
+    } catch (err: unknown) {
+      alert(getApiError(err, 'Error al eliminar la carpeta'));
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
     <div className="mb-10">
-      
       {/* Título y Botón */}
       <div className="flex items-center justify-between mb-5 px-1">
         <div className="flex items-center gap-2">
           <Folder className="w-5 h-5 text-slate-700" />
           <h2 className="text-lg font-bold text-slate-800">Carpetas</h2>
         </div>
-        {/* ANTES: <button className="text-sm font-bold text-[#8b5cf6]...">Ver todas</button> */}
-
-      <Link 
-      to="/folders" 
-      className="text-sm font-bold text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
-      >
-       Ver todas
-      </Link>
+        <Link 
+          to="/folders" 
+          className="text-sm font-bold text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
+        >
+         Ver todas
+        </Link>
       </div>
+
       {/* ZONA DE ESTADOS (Cargando, Error, Vacío) */}
       {isLoading && <p className="text-slate-500 text-sm pl-1">Cargando tus carpetas...</p>}
       {error && <p className="text-rose-500 text-sm pl-1">{error}</p>}
@@ -99,36 +102,43 @@ export default function FolderSection() {
             return (
               <div key={folder.folder_id} className="w-[220px] sm:w-[240px] shrink-0">
                 <FolderCard
-                  id={folder.folder_id} // Recuerda que le añadimos el id a las props del FolderCard
+                  id={folder.folder_id} 
                   name={folder.folder_name}
-                  count={folder.song_count} // Aquí usamos el campo real de SQLAlchemy
+                  count={folder.song_count} 
                   colorClass={color}
-                  onEditClick={(id, name) => setEditModal({ isOpen: true, id, name })} // Pasamos la función para abrir el modal de edición
-                  onDeleteClick={(id) => setDeleteModal({ isOpen: true, id })} // Pasamos la función para abrir el modal de eliminación
+                  onEditClick={(id, name) => setEditModal({ isOpen: true, id, name })} 
+                  // Ahora guardamos el ID y el Nombre para el nuevo modal
+                  onDeleteClick={(id, name) => setDeleteModal({ isOpen: true, id, name })} 
                 />
               </div>
             );
           })}
 
           <EditFolderModal 
-                 key={editModal.id} // <--- ¡LA MAGIA! Si el ID cambia, el modal se reinicia desde cero
-                 isOpen={editModal.isOpen}
-                 folderId={editModal.id}
-                 initialName={editModal.name}
-                 onClose={() => setEditModal({ ...editModal, isOpen: false })}
-                 onSuccess={updateFolderLocally}
-               />
-         
-               {/* --- MODAL PARA ELIMINAR --- */}
-               <DeleteFolderModal 
-                 isOpen={deleteModal.isOpen}
-                 folderId={deleteModal.id}
-                 onClose={() => setDeleteModal({ ...deleteModal, isOpen: false })}
-                 onSuccess={removeFolderLocally}
-               />
+            key={editModal.id} 
+            isOpen={editModal.isOpen}
+            folderId={editModal.id}
+            initialName={editModal.name}
+            onClose={() => setEditModal({ ...editModal, isOpen: false })}
+            onSuccess={updateFolderLocally}
+          />
+          
+          {/* --- NUESTRO MODAL UNIVERSAL --- */}
+          <DeleteModal 
+            isOpen={deleteModal.isOpen}
+            title="Eliminar carpeta"
+            message={
+              <p>
+                ¿Estás seguro de que deseas eliminar la carpeta <span className="font-bold text-slate-800">"{deleteModal.name}"</span>? 
+                Esta acción borrará permanentemente la carpeta y todas las canciones dentro.
+              </p>
+            }
+            isDeleting={isDeleting}
+            onClose={() => setDeleteModal({ ...deleteModal, isOpen: false })}
+            onConfirm={handleConfirmDelete}
+          />
         </div>
       )}
-      
     </div>
   );
 }

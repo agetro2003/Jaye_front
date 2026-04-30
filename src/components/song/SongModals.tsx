@@ -33,13 +33,20 @@ const [selectedFolderId, setSelectedFolderId] = useState<number | string>(initia
 
     setIsLoading(true);
     setError('');
-
+    const initialAbcText = `
+X: 1
+T: ${title}
+C: ${songwriter}
+M: 4/4
+L: 1/8
+K: C
+|:  :|`;
     try {
       const response = await api.post('/songs/', {
         song_title: title,
         song_songwriter: songwriter,
         folder_id: Number(selectedFolderId),
-        song_abc_text: "" // Empezamos con una canción vacía
+        song_abc_text: initialAbcText 
       });
 
       onSuccess(response.data.song_id);

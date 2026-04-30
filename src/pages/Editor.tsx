@@ -11,15 +11,6 @@ import axios from 'axios';
 
 import { getApiError } from '../utils/errorHandler';
 
-const INITIAL_ABC = `X: 1
-T: Ejemplo de Composición
-M: 4/4
-L: 1/8
-K: Emin
-V:1
-|z6 D2|"Em"EBBA B2 EB| ~B2 AB dBAG| "D"FDAD BDAD| FDAD dAFD|
-"Em"EBBA B2 EB| B2 AB defg| "D"afe^c dBAF| 
-"Em"DEFD E2 z2|`;
 
 export default function Editor() {
   const { songId } = useParams<{ songId: string }>();
@@ -56,7 +47,7 @@ export default function Editor() {
         const song = response.data;
         
         // Si la canción está vacía (recién creada), le ponemos una cabecera mínima
-        const initialText = song.song_abc_text || `X: 1\nT: ${song.song_title}\nM: 4/4\nL: 1/8\nK: C\nV: 1\n|`;
+        const initialText = song.song_abc_text || `X: 1\nT: ${song.song_title}\nC: ${song.song_songwriter}\nM: 4/4\nL: 1/8\nK: C\nV: 1\n|`;
         
         setAbcText(initialText);
         setSongTitle(song.song_title);

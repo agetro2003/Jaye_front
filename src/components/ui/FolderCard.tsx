@@ -7,7 +7,7 @@ interface FolderCardProps {
   count: number;
   colorClass: string;
   onEditClick?: (id: number, name: string) => void;
-  onDeleteClick?: (id: number) => void;
+  onDeleteClick?: (id: number, name: string) => void;
 }
 
 export default function FolderCard({ id, name, count, colorClass, onEditClick, onDeleteClick }: FolderCardProps) {
@@ -20,7 +20,7 @@ export default function FolderCard({ id, name, count, colorClass, onEditClick, o
   const handleDelete = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (onDeleteClick) onDeleteClick(id);
+    if (onDeleteClick) onDeleteClick(id, name);
   };
 
   return (
