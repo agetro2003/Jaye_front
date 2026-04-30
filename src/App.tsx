@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import Folders from './pages/Folders';
 import FolderDetails from './pages/FolderDetails';
+import Editor from './pages/Editor';
 
 const router = createBrowserRouter([
   {
@@ -31,6 +32,10 @@ const router = createBrowserRouter([
         path: '/folder/:id', 
         element: <FolderDetails /> 
       },
+      {
+        path: '/editor/:songId',
+        element: <Editor />,
+      }
     ],
   },
 ]);
