@@ -58,7 +58,7 @@ export default function Folders() {
   return (
     <div className="min-h-screen bg-[#f4f6f8]">
       <Navbar />
-      <main className="max-w-[1200px] mx-auto px-6 py-10">
+      <main className="max-w-300 mx-auto px-6 py-10">
         <Link
           to="/dashboard"
           className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-[#8b5cf6] mb-6"
