@@ -169,7 +169,7 @@ export default function Editor() {
     <div className="min-h-screen bg-[#f4f6f8] flex flex-col">
       <Navbar />
 
-      <main className="flex-1 max-w-[1400px] w-full mx-auto px-6 py-8 flex flex-col gap-6">
+      <main className="flex-1 max-w-350 w-full mx-auto px-6 py-8 flex flex-col gap-6">
         
         {/* 1. CABECERA */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
@@ -282,7 +282,7 @@ export default function Editor() {
         </div>
 
         {/* 3. ZONA DE TRABAJO */}
-        <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-[500px]">
+        <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-125">
           
           {/* Lado Izquierdo: Editor ABC */}
           <div className="w-full lg:w-1/2 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col p-6">
