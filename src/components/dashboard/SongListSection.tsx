@@ -1,14 +1,19 @@
+import { useMemo, useState } from 'react';
 import { Music, Loader2 } from 'lucide-react';
 import SongRow from '../ui/SongRow';
 import { useRecentSongs } from '../../hooks/useRecentSongs';
-import { useState } from 'react';
 import EditSongModal from '../song/EditSongModal';
 import api from '../../api/axios';
 import { getApiError } from '../../utils/errorHandler';
 import DeleteModal from '../ui/DeleteModal';
 
-export default function SongListSection() {
-  // Pedimos las 5 canciones más recientes
+// 1. Definimos las props que recibimos del Dashboard
+interface SongListProps {
+  searchTerm: string;
+  sortOption: string;
+}
+
+export default function SongListSection({ searchTerm, sortOption }: SongListProps) {
   const { recentSongs, isLoading, refetchRecentSongs } = useRecentSongs(5);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -18,52 +23,75 @@ export default function SongListSection() {
   const [songToDelete, setSongToDelete] = useState<{ id: number, name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  // Funciones para formatear la fecha de Postgres
-  const formatDate = (isoString: string) => {
+  const formatDate = (isoString: string) => { /* Tu lógica actual */ 
     const date = new Date(isoString);
     return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
-
-  const formatTime = (isoString: string) => {
+  const formatTime = (isoString: string) => { /* Tu lógica actual */ 
     const date = new Date(isoString);
     return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   };
 
-  // --- LÓGICA DE ELIMINAR ---
-const handleDeleteClick = (id: number) => {
-    // Buscamos el nombre de la canción para mostrarlo en la alerta
+  // --- LÓGICA DE FILTRADO Y ORDENAMIENTO ---
+  const filteredAndSortedSongs = useMemo(() => {
+    // A. Filtrar por texto
+    const result = recentSongs.filter((song) => 
+      song.song_title.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+// B. Ordenar
+    result.sort((a, b) => {
+      if (sortOption === "recent-edit") {
+        // Miramos la última actualización (si no hay, usamos la creación)
+        const dateA = new Date(a.song_last_update || a.song_created_at).getTime();
+        const dateB = new Date(b.song_last_update || b.song_created_at).getTime();
+        return dateB - dateA;
+      }
+      
+      if (sortOption === "recent-create") {
+        // Miramos ESTRICTAMENTE la fecha de creación original
+        const dateA = new Date(a.song_created_at).getTime();
+        const dateB = new Date(b.song_created_at).getTime();
+        return dateB - dateA;
+      }
+
+      if (sortOption === "name-asc") return a.song_title.localeCompare(b.song_title);
+      if (sortOption === "name-desc") return b.song_title.localeCompare(a.song_title);
+      
+      return 0;
+    });
+
+    return result;
+  }, [recentSongs, searchTerm, sortOption]);
+
+  const handleDeleteClick = (id: number) => { /* Tu lógica actual */ 
     const song = recentSongs.find(s => s.song_id === id);
     if (song) {
       setSongToDelete({ id, name: song.song_title });
       setIsDeleteModalOpen(true);
     }
   };
-  // --- LÓGICA DE EDITAR ---
-  const handleEditClick = (id: number) => {
+  const handleEditClick = (id: number) => { /* Tu lógica actual */ 
     setSongToEdit(id);
     setIsEditModalOpen(true);
   };
-
-
-  const handleEditSuccess = () => {
-    refetchRecentSongs(); // Refrescamos la lista para ver el nuevo título/autor
-  };
-const handleConfirmDelete = async () => {
+  const handleEditSuccess = () => { refetchRecentSongs(); };
+  const handleConfirmDelete = async () => { /* Tu lógica actual */ 
     if (!songToDelete) return;
-    
     setIsDeleting(true);
     try {
       await api.delete(`/songs/${songToDelete.id}`);
-      refetchRecentSongs(); // Recargamos la lista
-      setIsDeleteModalOpen(false); // Cerramos el modal
-      setSongToDelete(null); // Limpiamos el estado
+      refetchRecentSongs();
+      setIsDeleteModalOpen(false);
+      setSongToDelete(null);
     } catch (error) {
       alert(getApiError(error, "Error al eliminar la canción"));
     } finally {
       setIsDeleting(false);
     }
   };
- return (
+
+  return (
     <div>
       <div className="flex items-center gap-2 mb-4 pl-1">
         <Music className="w-5 h-5 text-slate-700" />
@@ -80,8 +108,12 @@ const handleConfirmDelete = async () => {
           <div className="text-center py-10 text-slate-500 font-medium">
             No tienes canciones recientes. ¡Crea una nueva composición!
           </div>
+        ) : filteredAndSortedSongs.length === 0 ? (
+          <div className="text-center py-10 text-slate-500 font-medium">
+            No se encontraron composiciones con "{searchTerm}"
+          </div>
         ) : (
-          recentSongs.map((song) => {
+          filteredAndSortedSongs.map((song) => {
             const dateStr = song.song_last_update || song.song_created_at;
             return (
               <SongRow
@@ -91,34 +123,23 @@ const handleConfirmDelete = async () => {
                 folderName={song.song_songwriter} 
                 lastModified={formatDate(dateStr)}
                 time={formatTime(dateStr)}
-                onEdit={handleEditClick}  // <-- Conectado
-                onDelete={handleDeleteClick}   // <-- Conectado
+                onEdit={handleEditClick}  
+                onDelete={handleDeleteClick}  
               />
             );
           })
         )}
       </div>
 
-      {/* Renderizamos el modal fuera de la lista */}
-      <EditSongModal
-        isOpen={isEditModalOpen}
-        songId={songToEdit}
-        onClose={() => setIsEditModalOpen(false)}
-        onSuccess={handleEditSuccess}
+      <EditSongModal isOpen={isEditModalOpen} songId={songToEdit} onClose={() => setIsEditModalOpen(false)} onSuccess={handleEditSuccess} />
+      <DeleteModal 
+        isOpen={isDeleteModalOpen} 
+        title="Eliminar composición" 
+        message={<p>¿Estás seguro de que deseas eliminar la composición <span className="font-bold text-slate-800">"{songToDelete?.name}"</span>? Esta acción es permanente.</p>} 
+        isDeleting={isDeleting} 
+        onClose={() => setIsDeleteModalOpen(false)} 
+        onConfirm={handleConfirmDelete} 
       />
-
-     <DeleteModal
-  isOpen={isDeleteModalOpen}
-  title="Eliminar composición"
-  message={
-    <p>
-      ¿Estás seguro de que deseas eliminar la composición <span className="font-bold text-slate-800">"{songToDelete?.name}"</span>? Esta acción es permanente.
-    </p>
-  }
-  isDeleting={isDeleting}
-  onClose={() => setIsDeleteModalOpen(false)}
-  onConfirm={handleConfirmDelete} // Aquí llamas a tu función que hace el api.delete('/songs/...')
-/>
     </div>
   );
 }
