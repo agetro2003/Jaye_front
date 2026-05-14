@@ -193,7 +193,7 @@ export default function Editor() {
               {isSaving ? 'Guardando...' : 'Guardar'}
             </button>
             <button 
-              onClick={() => handleDownloadPDF(printAreaRef)}
+              onClick={() => handleDownloadPDF(printAreaRef, songTitle)}
               className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-50 transition-colors"
             >
               <Download className="w-4 h-4" /> Descargar

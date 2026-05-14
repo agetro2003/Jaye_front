@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import type { RefObject } from 'react';
 
-export const handleDownloadPDF = async (printAreaRef: RefObject<HTMLDivElement | null>) => {
+export const handleDownloadPDF = async (printAreaRef: RefObject<HTMLDivElement | null>, filename: string) => {
   if (!printAreaRef.current) return;
 
   const svgElement = printAreaRef.current.querySelector('.sheet svg');
@@ -124,7 +124,7 @@ export const handleDownloadPDF = async (printAreaRef: RefObject<HTMLDivElement |
       remainingHeight -= chunkHeight;
     }
 
-    pdf.save("partitura_jaye.pdf");
+    pdf.save(filename + ".pdf");
   };
   
   img.src = url;
