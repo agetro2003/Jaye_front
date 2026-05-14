@@ -47,9 +47,21 @@ export default function SheetMusicPlayer({
       </div>
 
       {/* Contenedor del Pentagrama */}
-      {/* Usamos flex-1 para que ocupe todo el espacio sobrante hacia abajo y overflow-auto por si es muy larga */}
-      <div className="flex-1 overflow-auto rounded-xl bg-[#fafafa] border border-slate-100 p-4">
-        <div ref={paperRef} className="min-w-[600px] sheet"></div>
+      {/* Contenedor del Pentagrama */}
+      {/* 1. Mantenemos flex-1 min-h-0 para que no empuje todo hacia abajo infinitamente.
+        2. relative para que el scroll se ancle bien.
+      */}
+      <div className="flex-1 min-h-0 relative rounded-xl bg-[#fafafa] border border-slate-100">
+        
+        {/* 3. Aquí ponemos el absolute inset-0 con overflow-auto. 
+          Esto obliga al contenedor a respetar los límites de la tarjeta y habilitar el scroll si el SVG de abcjs es más grande.
+        */}
+        <div className="absolute inset-0 overflow-auto p-4">
+           {/* 4. Retiramos el min-w-[600px] si abcjs ya gestiona el ancho, o lo dejamos si es necesario, 
+             pero lo importante es que el contenedor padre ahora tiene scroll vertical explícito.
+           */}
+           <div ref={paperRef} className="sheet" />
+        </div>
       </div>
       
     </div>

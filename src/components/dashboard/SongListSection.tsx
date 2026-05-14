@@ -36,6 +36,7 @@ export default function SongListSection({ searchTerm, sortOption }: SongListProp
   const filteredAndSortedSongs = useMemo(() => {
     // A. Filtrar por texto
     const result = recentSongs.filter((song) => 
+      
       song.song_title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
