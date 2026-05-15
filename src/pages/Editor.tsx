@@ -116,11 +116,15 @@ export default function Editor() {
   };
 
   // Descargar midi
-  const handleDownloadMIDI = async () => {
+const handleDownloadMIDI = async () => {
     try {
-      const midiResult = abcjs.synth.getMidiFile(abcText);
+      // Limpiamos los "Enters" extra para que el audio no se corte por la mitad
+      const cleanAbcForAudio = abcText.replace(/\n(?:\s*\n)+/g, '\n');
+      
+      const midiResult = abcjs.synth.getMidiFile(cleanAbcForAudio); // <-- Usamos la variable limpia
+      
       const temp = document.createElement("div");
-      temp.innerHTML = Array.isArray(midiResult) ? midiResult[0] : midiResult as string; 
+      temp.innerHTML = Array.isArray(midiResult) ? midiResult[0] : midiResult as string;
       const midiHref = temp.querySelector("a")?.getAttribute("href");
       
       if (!midiHref) {
@@ -400,9 +404,11 @@ export default function Editor() {
 
           {/* Lado Derecho: Partitura */}
           <div className="w-full lg:w-1/2" ref={printAreaRef}>
-            {/* NUEVO: Limpiamos los saltos de página (%%newpage) antes de dárselos a abcjs */}
+            {/* 1. replace(/%%newpage/g, ''): Quita los saltos de página del PDF 
+              2. replace(/\n(?:\s*\n)+/g, '\n'): Colapsa múltiples Enter seguidos en uno solo 
+            */}
             <SheetMusicPlayer 
-              abcText={abcText.replace(/%%newpage/g, '')} 
+              abcText={abcText.replace(/%%newpage/g, '').replace(/\n(?:\s*\n)+/g, '\n')} 
               instrument={instrument} 
               drumStyle={drumStyle} 
             />
