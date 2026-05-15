@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react'; // <-- Añadimos useRef y useEffect
 import { Play, Sparkles, Check } from 'lucide-react';
 
 interface AIProposalsProps {
@@ -9,6 +10,20 @@ interface AIProposalsProps {
 
 export default function AIProposals({ proposals, isLoading, onPlayProposal, onAcceptProposal }: AIProposalsProps) {
   
+  // --- NUEVO: Referencia para el scroll automático ---
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // --- NUEVO: Efecto que vigila cuando termina de cargar ---
+  useEffect(() => {
+    // Si ya no está cargando, hay propuestas, y la referencia existe...
+    if (!isLoading && proposals.length > 0 && containerRef.current) {
+      // Hacemos un pequeño retraso de 100ms para asegurar que React ya haya dibujado las tarjetas
+      setTimeout(() => {
+        containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [isLoading, proposals]);
+
   // Si no hay sugerencias y no está cargando, mostramos un pequeño "Call to Action"
   if (proposals.length === 0 && !isLoading) {
     return (
@@ -25,7 +40,8 @@ export default function AIProposals({ proposals, isLoading, onPlayProposal, onAc
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+    // --- NUEVO: Añadimos la referencia (ref) a este contenedor principal ---
+    <div ref={containerRef} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
       <div className="flex items-center gap-2 mb-6">
         <Sparkles className="w-6 h-6 text-slate-800" />
         <h2 className="text-xl font-bold text-slate-900">Sugerencias generadas</h2>

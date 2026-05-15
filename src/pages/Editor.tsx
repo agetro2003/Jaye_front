@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect} from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, Download, Settings, Sparkles, Loader2, Music } from 'lucide-react'; 
+import { useParams, useNavigate } from 'react-router-dom'; // <-- Añadido useNavigate
+import { ArrowLeft, Save, Download, Settings, Sparkles, Loader2, Music, CheckCircle2 } from 'lucide-react'; // <-- Añadido CheckCircle2
 import Navbar from '../components/Navbar';
 import SheetMusicPlayer from '../components/editor/SheetMusicPlayer'; 
 import AIProposals from '../components/editor/AIProposals';
@@ -11,16 +11,18 @@ import axios from 'axios';
 
 import { getApiError } from '../utils/errorHandler';
 
-
 export default function Editor() {
   const { songId } = useParams<{ songId: string }>();
-
+  const navigate = useNavigate(); // <-- Iniciamos navigate
 
   const [abcText, setAbcText] = useState("");
   const [songTitle, setSongTitle] = useState("Cargando...");
   const [songwriter, setSongwriter] = useState("");  
 
-
+  // --- NUEVO: Estado para saber qué texto teníamos al guardar/cargar ---
+  const [originalAbc, setOriginalAbc] = useState("");
+  // --- NUEVO: Estado para mostrar el mensaje de éxito temporal ---
+  const [saveSuccess, setSaveSuccess] = useState(false);
   
   // Estados para la configuración general
   const [isLoading, setIsLoading] = useState(true);
@@ -29,7 +31,7 @@ export default function Editor() {
   const [drumStyle, setDrumStyle] = useState('none');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
-  // --- NUEVOS ESTADOS PARA LA IA ---
+  // Estados para la IA
   const [proposals, setProposals] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [numVariations, setNumVariations] = useState(3);
@@ -39,17 +41,20 @@ export default function Editor() {
   const printAreaRef = useRef<HTMLDivElement>(null);
   const previewSynthRef = useRef<InstanceType<typeof abcjs.synth.CreateSynth> | null>(null);
 
-// 2. EFECTO: Cargar la canción al entrar
+  // NUEVO: Variable calculada para saber si hay cambios sin guardar
+  const hasUnsavedChanges = abcText !== originalAbc;
+
+  // EFECTO: Cargar la canción al entrar
   useEffect(() => {
     const fetchSong = async () => {
       try {
         const response = await api.get(`/songs/${songId}`);
         const song = response.data;
         
-        // Si la canción está vacía (recién creada), le ponemos una cabecera mínima
         const initialText = song.song_abc_text || `X: 1\nT: ${song.song_title}\nC: ${song.song_songwriter}\nM: 4/4\nL: 1/8\nK: C\nV: 1\n|`;
         
         setAbcText(initialText);
+        setOriginalAbc(initialText); // <-- Guardamos la versión original
         setSongTitle(song.song_title);
         setSongwriter(song.song_songwriter);
       } catch (err: unknown) {
@@ -62,16 +67,47 @@ export default function Editor() {
     if (songId) fetchSong();
   }, [songId]);
 
-  // 3. FUNCIÓN: Guardar cambios en la DB
+  // --- NUEVO: EFECTO para bloquear el cierre de pestaña/navegador ---
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = ''; // Requerido por Chrome para mostrar la alerta
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // --- NUEVO: FUNCIÓN para interceptar el botón de "Volver al panel" ---
+  const handleBackClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (hasUnsavedChanges) {
+      const confirmLeave = window.confirm("Tienes cambios sin guardar. ¿Estás seguro de que quieres salir y perderlos?");
+      if (!confirmLeave) return;
+    }
+    navigate('/dashboard');
+  };
+
+  // FUNCIÓN: Guardar cambios en la DB
   const handleSave = async () => {
     setIsSaving(true);
+    setSaveSuccess(false); // Reiniciamos el toast por si acaso
     try {
       await api.put(`/songs/${songId}`, {
         song_abc_text: abcText,
         song_title: songTitle,
         song_songwriter: songwriter
       });
-      // Podrías mostrar un "toast" de éxito aquí
+      
+      setOriginalAbc(abcText); // <-- Actualizamos la versión original
+      setSaveSuccess(true); // Mostramos éxito
+      
+      // Ocultamos el mensaje verde después de 3 segundos
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 3000);
+
     } catch (err: unknown) {
       alert(getApiError(err, "Error al guardar los cambios"));
     } finally {
@@ -79,20 +115,12 @@ export default function Editor() {
     }
   };
 
-
-
   // Descargar midi
- const handleDownloadMIDI = async () => {
+  const handleDownloadMIDI = async () => {
     try {
-      // 1. Quitamos las opciones que molestan a TypeScript. 
-      // Al pasarle el abcText, por defecto genera el string HTML con el <a>.
       const midiResult = abcjs.synth.getMidiFile(abcText);
-      
-      // 2. Extraemos el href
       const temp = document.createElement("div");
-      // Manejamos si es un array o un string directo
       temp.innerHTML = Array.isArray(midiResult) ? midiResult[0] : midiResult as string; 
-
       const midiHref = temp.querySelector("a")?.getAttribute("href");
       
       if (!midiHref) {
@@ -100,16 +128,13 @@ export default function Editor() {
         return;
       }
 
-      // 3. Decodificamos con fetch
       const response = await fetch(midiHref);
       const arrayBuffer = await response.arrayBuffer();
       const midiBytes = new Uint8Array(arrayBuffer);
 
-      // 4. Creamos el Blob binario
       const midiBlob = new Blob([midiBytes], { type: "audio/midi" });
       const url = window.URL.createObjectURL(midiBlob);
 
-      // 5. Descargamos
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
@@ -118,7 +143,6 @@ export default function Editor() {
       document.body.appendChild(a);
       a.click();
       
-      // Limpiamos
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
@@ -128,7 +152,7 @@ export default function Editor() {
     }
   };
   
-  // --- LÓGICA DE LA IA ---
+  // LÓGICA DE LA IA
   const handleGenerateAI = async () => {
     if (!abcText.trim()) {
       alert("Escribe algo en el editor antes de pedir una propuesta.");
@@ -142,8 +166,8 @@ export default function Editor() {
       const response = await api.post('/songs/generate-ai', {
         abcText: abcText,
         bars: 4, 
-        num_variations: numVariations, // Ahora usamos el estado
-        temperature: temperature       // Ahora usamos el estado
+        num_variations: numVariations,
+        temperature: temperature      
       });
 
       if (response.data && response.data.proposals) {
@@ -151,7 +175,6 @@ export default function Editor() {
       }
     } catch (error: unknown) {
       console.error("Error llamando a la IA:", error);
-      // Comprobamos si es un error de Axios para poder leer response.data
       if (axios.isAxiosError(error)) {
         const errorMsg = error.response?.data?.detail || "Hubo un error de conexión con la IA.";
         alert(`Error de IA: ${errorMsg}`);
@@ -163,32 +186,25 @@ export default function Editor() {
     }
   };
 
-  // --- LÓGICA DE LOS BOTONES DE LAS PROPUESTAS ---
   const handleAcceptProposal = (proposal: string) => {
-    // 1. Añadimos la propuesta al final del texto actual
     setAbcText(prev => `${prev.trim()}\n${proposal}`);
-    // 2. Hacemos scroll suave hacia arriba para ver el resultado en la partitura
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    // 3. (Opcional) Podrías limpiar las propuestas aquí si quieres: setProposals([])
   };
 
   const handlePlayProposal = async (proposal: string) => {
-    // Si ya hay una propuesta sonando, la detenemos
     if (previewSynthRef.current) {
       previewSynthRef.current.stop();
     }
 
     try {
-      // Extraemos las cabeceras del texto original (X:, T:, K:, M:, L:, etc.)
-      // Esto es crucial para que la propuesta suene en el tono y velocidad correctos
       const headers = abcText.split('\n').filter(line => /^[A-Z%]:/.test(line)).join('\n');
       const previewAbc = `${headers}\n${proposal}`;
 
-      // Creamos un div invisible en memoria
       const dummyDiv = document.createElement('div');
-      const visualObj = abcjs.renderAbc(dummyDiv, previewAbc)[0];
+      // Filtramos %%newpage también en la previsualización por si acaso
+      const cleanAbc = previewAbc.replace(/%%newpage/g, ''); 
+      const visualObj = abcjs.renderAbc(dummyDiv, cleanAbc)[0];
 
-      // Inicializamos y reproducimos
       const synth = new abcjs.synth.CreateSynth();
       previewSynthRef.current = synth;
 
@@ -222,28 +238,45 @@ export default function Editor() {
         {/* 1. CABECERA */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="p-2 text-slate-500 hover:text-slate-800 transition-colors bg-slate-100 rounded-xl">
+            {/* NUEVO: Botón convertido para interceptar el clic */}
+            <button 
+              onClick={handleBackClick} 
+              className="p-2 text-slate-500 hover:text-slate-800 transition-colors bg-slate-100 rounded-xl"
+              title="Volver al panel"
+            >
               <ArrowLeft className="w-5 h-5" />
-            </Link>
+            </button>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">{songTitle}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-slate-900">{songTitle}</h1>
+                {/* NUEVO: Indicador de cambios sin guardar */}
+                {hasUnsavedChanges && (
+                  <span className="w-2 h-2 rounded-full bg-rose-500" title="Cambios sin guardar"></span>
+                )}
+              </div>
               <p className="text-xs text-slate-500 font-medium">{songwriter}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-            {/* Botón Guardar */}
+            
+            {/* NUEVO: Toast de éxito */}
+            {saveSuccess && (
+              <span className="text-sm font-bold text-emerald-600 flex items-center gap-1 animate-in fade-in slide-in-from-right-4">
+                <CheckCircle2 className="w-4 h-4" /> Guardado
+              </span>
+            )}
+
             <button 
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || !hasUnsavedChanges} // Deshabilitamos si no hay cambios
               className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-violet-600 text-white font-bold text-xs sm:text-sm rounded-xl hover:bg-violet-700 transition-all shadow-sm active:scale-95 disabled:opacity-50"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {isSaving ? 'Guardando...' : 'Guardar'}
             </button>
             
-            {/* NUEVO: Botón Descargar Audio (MIDI) */}
             <button 
               onClick={handleDownloadMIDI}
               className="flex items-center gap-2 px-3 sm:px-4 py-2 border border-slate-200 text-slate-700 font-bold text-xs sm:text-sm rounded-xl hover:bg-slate-50 transition-colors shadow-sm active:scale-95"
@@ -252,7 +285,6 @@ export default function Editor() {
               <Music className="w-4 h-4 text-violet-500" /> Audio
             </button>
 
-            {/* Botón Descargar PDF */}
             <button 
               onClick={() => handleDownloadPDF(printAreaRef, songTitle)}
               className="flex items-center gap-2 px-3 sm:px-4 py-2 border border-slate-200 text-slate-700 font-bold text-xs sm:text-sm rounded-xl hover:bg-slate-50 transition-colors shadow-sm active:scale-95"
@@ -310,7 +342,7 @@ export default function Editor() {
                 </select>
               </div>
 
-              {/* --- NUEVOS CONTROLES DE IA --- */}
+              {/* CONTROLES DE IA */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-violet-500 uppercase tracking-wider">Opciones IA</label>
                 <select 
@@ -338,7 +370,6 @@ export default function Editor() {
                   <option value={2.0}>Caótico (2.0)</option>
                 </select>
               </div>
-              {/* -------------------------------- */}
 
             </div>
           )}
@@ -369,8 +400,9 @@ export default function Editor() {
 
           {/* Lado Derecho: Partitura */}
           <div className="w-full lg:w-1/2" ref={printAreaRef}>
+            {/* NUEVO: Limpiamos los saltos de página (%%newpage) antes de dárselos a abcjs */}
             <SheetMusicPlayer 
-              abcText={abcText} 
+              abcText={abcText.replace(/%%newpage/g, '')} 
               instrument={instrument} 
               drumStyle={drumStyle} 
             />
@@ -383,8 +415,8 @@ export default function Editor() {
           <AIProposals 
             proposals={proposals} 
             isLoading={isGenerating} 
-            onPlayProposal={handlePlayProposal} // <-- Función conectada
-            onAcceptProposal={handleAcceptProposal} // <-- Función conectada
+            onPlayProposal={handlePlayProposal} 
+            onAcceptProposal={handleAcceptProposal} 
           />
         </div>
 
