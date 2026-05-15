@@ -5,7 +5,6 @@ import 'abcjs/abcjs-audio.css';
 import CursorControl from '../utils/cursorControl';
 import { getDrumTrack } from '../utils/drumPatterns';
 
-// Función rescatada para inyectar el instrumento
 const updateInstrumentInABC = (text: string, programNumber: number) => {
   const midiLine = `%%MIDI program ${programNumber}`;
   if (text.includes("%%MIDI program")) return text.replace(/%%MIDI program \d+/, midiLine);
@@ -13,12 +12,11 @@ const updateInstrumentInABC = (text: string, programNumber: number) => {
 };
 
 export function useAbcAudio(
-  paperRef: RefObject<HTMLDivElement | null>, // <-- Tipo actualizado
+  paperRef: RefObject<HTMLDivElement | null>,
   rawAbc: string,
   instrument: number,
   drumStyle: string
 ) {
-  // 1. Tipamos estrictamente las referencias usando los tipos de abcjs en lugar de 'any'
   const synthRef = useRef<MidiBuffer| null>(null);
   const visualObjRef = useRef<TuneObject | null>(null);
   const timingCallbacksRef = useRef<TimingCallbacks | null>(null);
@@ -29,10 +27,8 @@ export function useAbcAudio(
   useEffect(() => {
     if (!paperRef.current || !rawAbc.trim()) return;
 
-    // Guardamos la referencia actual en una variable local para el Cleanup (arregla el Warning)
     const currentCursorControl = cursorControlRef.current;
-
-    const cleanAbc = rawAbc.trim(); // <-- Crucial: elimina saltos de línea al final
+    const cleanAbc = rawAbc.trim(); 
     const drumTrack = getDrumTrack(cleanAbc, drumStyle);
     
     const abcWithDrums = drumStyle === 'none' ? cleanAbc : `${cleanAbc}\n${drumTrack}`;
@@ -45,7 +41,6 @@ export function useAbcAudio(
         add_classes: true 
       };
       
-      // renderAbc devuelve un array de TuneObject
       const visualObj = abcjs.renderAbc(paperRef.current, finalAbc, visualOptions)[0];
       visualObjRef.current = visualObj;
 
@@ -61,16 +56,22 @@ export function useAbcAudio(
       console.error("Error renderizando ABC:", error);
     }
 
-    // Cleanup usando la variable local
     return () => {
       if (synthRef.current) synthRef.current.stop();
       if (timingCallbacksRef.current) timingCallbacksRef.current.stop();
-      currentCursorControl.onFinished(); // <-- Usamos la variable local
+      currentCursorControl.onFinished(); 
       setIsPlaying(false);
     };
   }, [rawAbc, instrument, drumStyle, paperRef]);
 
-  const play = async () => {
+  // Función de parada (la separamos para poder llamarla desde dentro del play)
+  const stop = () => {
+    if (synthRef.current) synthRef.current.stop();
+    if (timingCallbacksRef.current) timingCallbacksRef.current.stop();
+    cursorControlRef.current.onFinished();
+    setIsPlaying(false);
+  };
+const play = async () => {
     const synth = synthRef.current;
     const visualObj = visualObjRef.current;
     
@@ -78,28 +79,28 @@ export function useAbcAudio(
 
     await synth.prime();
     
-    // 2. Tipamos el evento de NoteTimingEvent
     const timingCallbacks = new abcjs.TimingCallbacks(visualObj, {
       eventCallback: (ev: NoteTimingEvent | null) => {
+        // 1. Movemos el cursor (tu lógica actual)
         cursorControlRef.current.onEvent(ev);
-        // En JS no devolver nada funciona, pero para que TypeScript 
-        // no se queje por el EventCallbackReturn, devolvemos un undefined "enmascarado".
+        
+        // --- 2. EL NUEVO TRUCO ---
+        // Si 'ev' es null, significa que abcjs ha llegado al final de la partitura
+        if (ev === null) {
+          setIsPlaying(false); // Reseteamos el botón a "Reproducir"
+          // (No hace falta llamar a synth.stop() porque ya se paró solo)
+        }
+        
         return undefined; 
       }
     });
     
     timingCallbacksRef.current = timingCallbacks;
 
+    // Arrancamos el audio de forma normal, sin promesas que enfaden a TypeScript
     synth.start();
     timingCallbacks.start();
     setIsPlaying(true);
-  };
-
-  const stop = () => {
-    if (synthRef.current) synthRef.current.stop();
-    if (timingCallbacksRef.current) timingCallbacksRef.current.stop();
-    cursorControlRef.current.onFinished();
-    setIsPlaying(false);
   };
 
   const togglePlay = () => isPlaying ? stop() : play();
