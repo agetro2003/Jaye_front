@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, FolderOpen, Loader2 } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router-dom"; // <-- Añadido useNavigate
+import { ArrowLeft, FolderOpen, Loader2, Music } from "lucide-react"; // <-- Añadido Music
 import Navbar from "../components/Navbar";
 import SearchBar from "../components/dashboard/SearchBar";
 import SongRow from "../components/ui/SongRow";
@@ -9,12 +9,14 @@ import { getApiError } from "../utils/errorHandler";
 
 import EditSongModal from "../components/song/EditSongModal";
 import DeleteModal from "../components/ui/DeleteModal";
+import SongModal from "../components/song/SongModals"; // <-- Importamos tu SongModal
 import { type SongData } from "../hooks/useRecentSongs"; 
 
 import { useFolders } from "../hooks/useFolders";
 
 export default function FolderDetails() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate(); // <-- Iniciamos navigate
   const { folders } = useFolders();
 
   const [songs, setSongs] = useState<SongData[]>([]);
@@ -22,7 +24,7 @@ export default function FolderDetails() {
   const [error, setError] = useState("");
   const [refetchTrigger, setRefetchTrigger] = useState(0);
 
-  // 1. Estados de la barra de búsqueda (Igual que en el Dashboard)
+  // Estados de la barra de búsqueda
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState("recent-edit");
 
@@ -32,6 +34,9 @@ export default function FolderDetails() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [songToDelete, setSongToDelete] = useState<{ id: number; name: string; } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // --- NUEVO: Estado para el modal de crear canción ---
+  const [isSongModalOpen, setIsSongModalOpen] = useState(false);
 
   const currentFolder = folders.find((f) => f.folder_id === Number(id));
   const folderName = currentFolder ? currentFolder.folder_name : "";
@@ -61,16 +66,15 @@ export default function FolderDetails() {
 
   const handleRefetch = () => setRefetchTrigger((prev) => prev + 1);
 
-  const formatDate = (isoString: string) => { /* ... */ 
+  const formatDate = (isoString: string) => { 
     const date = new Date(isoString);
     return date.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
   };
-  const formatTime = (isoString: string) => { /* ... */ 
+  const formatTime = (isoString: string) => { 
     const date = new Date(isoString);
     return date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
   };
 
-  // --- LÓGICA DE FILTRADO Y ORDENAMIENTO (Misma que SongListSection) ---
   const filteredAndSortedSongs = useMemo(() => {
     const result = songs.filter((song) => 
       song.song_title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -103,7 +107,7 @@ export default function FolderDetails() {
     const song = songs.find((s) => s.song_id === songId);
     if (song) { setSongToDelete({ id: songId, name: song.song_title }); setIsDeleteModalOpen(true); }
   };
-  const handleConfirmDelete = async () => { /* ... */ 
+  const handleConfirmDelete = async () => { 
     if (!songToDelete) return;
     setIsDeleting(true);
     try {
@@ -115,6 +119,12 @@ export default function FolderDetails() {
     finally { setIsDeleting(false); }
   };
 
+  // --- NUEVA FUNCIÓN: Manejar la creación exitosa ---
+  const handleSongCreated = (songId: number) => {
+    setIsSongModalOpen(false);
+    navigate(`/editor/${songId}`);
+  };
+
   return (
     <div className="min-h-screen bg-[#f4f6f8]">
       <Navbar />
@@ -124,16 +134,26 @@ export default function FolderDetails() {
           <ArrowLeft className="w-4 h-4" /> Volver al panel principal
         </Link>
 
-        <div className="flex items-center gap-3 mb-8">
-          <div className="bg-[#8b5cf6] p-2.5 rounded-xl shadow-sm">
-            <FolderOpen className="w-7 h-7 text-white" />
+        {/* --- CABECERA ACTUALIZADA (Layout Flex) --- */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#8b5cf6] p-2.5 rounded-xl shadow-sm">
+              <FolderOpen className="w-7 h-7 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-slate-900">
+              {isLoading ? "Cargando..." : folderName}
+            </h1>
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            {isLoading ? "Cargando..." : folderName}
-          </h1>
+          
+          <button 
+            onClick={() => setIsSongModalOpen(true)}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-bold text-sm rounded-xl transition-all shadow-sm active:scale-95"
+          >
+            <Music className="w-4 h-4" />
+            Nueva composición
+          </button>
         </div>
 
-        {/* 2. Conectamos la barra de búsqueda */}
         <SearchBar 
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -157,15 +177,13 @@ export default function FolderDetails() {
             <div className="text-center py-12 text-slate-500">
               <FolderOpen className="w-12 h-12 mx-auto text-slate-300 mb-3" />
               <p className="font-medium text-slate-600">Esta carpeta está vacía</p>
-              <p className="text-sm">¡Sube tu primera composición desde el panel principal!</p>
+              <p className="text-sm">¡Añade tu primera composición con el botón superior!</p>
             </div>
           ) : filteredAndSortedSongs.length === 0 ? (
-            // 3. Mensaje si la búsqueda no encuentra nada
             <div className="text-center py-12 text-slate-500 font-medium">
               No se encontraron composiciones con "{searchTerm}"
             </div>
           ) : (
-            // 4. Mapeamos la lista filtrada
             filteredAndSortedSongs.map((song) => {
               const dateStr = song.song_last_update || song.song_created_at;
               return (
@@ -187,6 +205,14 @@ export default function FolderDetails() {
 
       <EditSongModal isOpen={isEditModalOpen} songId={songToEdit} onClose={() => setIsEditModalOpen(false)} onSuccess={handleRefetch} />
       <DeleteModal isOpen={isDeleteModalOpen} title="Eliminar composición" message={<p>¿Estás seguro de que deseas eliminar la composición <span className="font-bold text-slate-800">"{songToDelete?.name}"</span>? Esta acción es permanente.</p>} isDeleting={isDeleting} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleConfirmDelete} />
+      
+      {/* --- NUEVO: Modal de Crear Canción inyectando el ID de la carpeta --- */}
+      <SongModal 
+        isOpen={isSongModalOpen} 
+        onClose={() => setIsSongModalOpen(false)} 
+        onSuccess={handleSongCreated} 
+        initialFolderId={Number(id)} 
+      />
     </div>
   );
 }

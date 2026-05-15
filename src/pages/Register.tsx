@@ -1,12 +1,11 @@
 import Form from '../components/ui/Form';
 import InputField from '../components/ui/InputField';
 import Button from '../components/ui/Button';
-import { Mail, User, Lock, CheckCircle2 } from 'lucide-react'; // <-- Añadido CheckCircle2
+import { Mail, User, Lock, CheckCircle2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { isAxiosError } from 'axios';
 import api from '../api/axios';
-// Asegúrate de que la ruta al Modal sea correcta según tu estructura
 import Modal from '../components/ui/Modal'; 
 
 export default function Register() {
@@ -20,19 +19,39 @@ export default function Register() {
   
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  // --- NUEVO: Estado para controlar el modal de éxito ---
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    // 1. Validación Frontend: Comprobar que las contraseñas coinciden
+    // --- 1. VALIDACIONES FRONTEND (El Escudo) ---
+    
+    // A. Comprobar campos vacíos
+    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+      setError('Por favor, completa todos los campos.');
+      return;
+    }
+
+    // B. Comprobar formato de correo válido (ej: usuario@dominio.com)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Por favor, introduce un correo electrónico válido (ejemplo@dominio.com).');
+      return;
+    }
+
+    // C. Comprobar longitud de contraseña
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    // D. Comprobar que las contraseñas coinciden
     if (password !== confirmPassword) {
       setError('Las contraseñas no coinciden.');
       return;
     }
+    // ---------------------------------------------
 
     setIsLoading(true);
 
@@ -44,16 +63,25 @@ export default function Register() {
         user_password: password
       });
 
-      // 3. Éxito: En lugar de redirigir bruscamente, abrimos el modal
+      // 3. Éxito: Abrimos el modal
       setIsSuccessModalOpen(true);
       
     } catch (err) {
       if (isAxiosError(err)) {
-        setError(err.response?.data?.detail || 'Error al crear la cuenta. Inténtalo de nuevo.');
+        const detail = err.response?.data?.detail;
+        
+        if (Array.isArray(detail)) {
+          setError(`Error en el campo: ${detail[0].loc[1]} - ${detail[0].msg}`);
+        } else if (typeof detail === 'string') {
+          setError(detail);
+        } else {
+          setError('Error al procesar la solicitud. Verifica tus datos.');
+        }
       } else {
         setError('Ocurrió un error inesperado de red.');
       }
     } finally {
+      // No olvides el finally para quitar el estado de carga si falla
       setIsLoading(false);
     }
   };
@@ -97,7 +125,7 @@ export default function Register() {
         />
         <div>   
           {error && (
-            <p className="text-rose-500 text-xs font-semibold text-center">{error}</p>
+            <p className="text-rose-500 text-xs font-semibold text-center pb-2">{error}</p>
           )}
           <Button type="submit">
             {isLoading ? 'Creando cuenta...' : 'Crear usuario'}                    
@@ -111,10 +139,8 @@ export default function Register() {
         </div>
       </Form>
 
-      {/* --- NUEVO: Modal de Registro Exitoso --- */}
       <Modal 
         isOpen={isSuccessModalOpen} 
-        // Si el usuario hace clic fuera o en la X, lo mandamos al login también
         onClose={() => navigate('/')} 
         title="¡Registro exitoso!" 
         icon={<CheckCircle2 className="w-6 h-6" />}
