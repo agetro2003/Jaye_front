@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect} from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, Download, Settings, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Download, Settings, Sparkles, Loader2, Music } from 'lucide-react'; 
 import Navbar from '../components/Navbar';
 import SheetMusicPlayer from '../components/editor/SheetMusicPlayer'; 
 import AIProposals from '../components/editor/AIProposals';
@@ -80,6 +80,54 @@ export default function Editor() {
   };
 
 
+
+  // Descargar midi
+ const handleDownloadMIDI = async () => {
+    try {
+      // 1. Quitamos las opciones que molestan a TypeScript. 
+      // Al pasarle el abcText, por defecto genera el string HTML con el <a>.
+      const midiResult = abcjs.synth.getMidiFile(abcText);
+      
+      // 2. Extraemos el href
+      const temp = document.createElement("div");
+      // Manejamos si es un array o un string directo
+      temp.innerHTML = Array.isArray(midiResult) ? midiResult[0] : midiResult as string; 
+
+      const midiHref = temp.querySelector("a")?.getAttribute("href");
+      
+      if (!midiHref) {
+        alert("La partitura está vacía o es inválida.");
+        return;
+      }
+
+      // 3. Decodificamos con fetch
+      const response = await fetch(midiHref);
+      const arrayBuffer = await response.arrayBuffer();
+      const midiBytes = new Uint8Array(arrayBuffer);
+
+      // 4. Creamos el Blob binario
+      const midiBlob = new Blob([midiBytes], { type: "audio/midi" });
+      const url = window.URL.createObjectURL(midiBlob);
+
+      // 5. Descargamos
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `${songTitle.replace(/\s+/g, '_')}.mid`;
+      
+      document.body.appendChild(a);
+      a.click();
+      
+      // Limpiamos
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+    } catch (err) {
+      console.error("Error procesando MIDI:", err);
+      alert("Hubo un error al generar el archivo de audio MIDI.");
+    }
+  };
+  
   // --- LÓGICA DE LA IA ---
   const handleGenerateAI = async () => {
     if (!abcText.trim()) {
@@ -184,20 +232,35 @@ export default function Editor() {
           </div>
 
           <div className="flex items-center gap-3">
+           <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+            {/* Botón Guardar */}
             <button 
               onClick={handleSave}
               disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white font-bold text-sm rounded-xl hover:bg-violet-700 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-violet-600 text-white font-bold text-xs sm:text-sm rounded-xl hover:bg-violet-700 transition-all shadow-sm active:scale-95 disabled:opacity-50"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {isSaving ? 'Guardando...' : 'Guardar'}
             </button>
+            
+            {/* NUEVO: Botón Descargar Audio (MIDI) */}
+            <button 
+              onClick={handleDownloadMIDI}
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 border border-slate-200 text-slate-700 font-bold text-xs sm:text-sm rounded-xl hover:bg-slate-50 transition-colors shadow-sm active:scale-95"
+              title="Descargar audio MIDI"
+            >
+              <Music className="w-4 h-4 text-violet-500" /> Audio
+            </button>
+
+            {/* Botón Descargar PDF */}
             <button 
               onClick={() => handleDownloadPDF(printAreaRef, songTitle)}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 border border-slate-200 text-slate-700 font-bold text-xs sm:text-sm rounded-xl hover:bg-slate-50 transition-colors shadow-sm active:scale-95"
+              title="Descargar partitura en PDF"
             >
-              <Download className="w-4 h-4" /> Descargar
+              <Download className="w-4 h-4 text-slate-500" /> PDF
             </button>
+          </div>
           </div>
         </div>
 
