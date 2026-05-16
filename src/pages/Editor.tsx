@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect} from 'react';
 import { useParams, useNavigate } from 'react-router-dom'; // <-- Añadido useNavigate
-import { ArrowLeft, Save, Download, Settings, Sparkles, Loader2, Music, CheckCircle2 } from 'lucide-react'; // <-- Añadido CheckCircle2
 import Navbar from '../components/Navbar';
 import SheetMusicPlayer from '../components/editor/SheetMusicPlayer'; 
 import AIProposals from '../components/editor/AIProposals';
@@ -8,7 +7,8 @@ import { handleDownloadPDF } from '../utils/downloadPDF';
 import api from '../api/axios';
 import abcjs from 'abcjs'; 
 import axios from 'axios';
-
+import { ArrowLeft, Save, Download, Settings, Sparkles, Loader2, Music, CheckCircle2, HelpCircle } from 'lucide-react'; // <-- Añadido HelpCircle
+import AbcHelpModal from '../components/editor/AbcHelpModal'; // Ajusta la ruta correcta
 import { getApiError } from '../utils/errorHandler';
 
 export default function Editor() {
@@ -36,7 +36,8 @@ export default function Editor() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [numVariations, setNumVariations] = useState(3);
   const [temperature, setTemperature] = useState(1.0);
-  
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+
   // Referencias
   const printAreaRef = useRef<HTMLDivElement>(null);
   const previewSynthRef = useRef<InstanceType<typeof abcjs.synth.CreateSynth> | null>(null);
@@ -385,7 +386,17 @@ const handleDownloadMIDI = async () => {
           {/* Lado Izquierdo: Editor ABC */}
           <div className="w-full lg:w-1/2 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-slate-900">Notación de ABC</h2>
+              {/* Título + Botón de Ayuda */}
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-900">Notación de ABC</h2>
+                <button 
+                  onClick={() => setIsHelpModalOpen(true)}
+                  className="p-1 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-full transition-colors"
+                  title="Ayuda con la notación"
+                >
+                  <HelpCircle className="w-5 h-5" />
+                </button>
+              </div>
               <button 
                 onClick={handleGenerateAI}
                 disabled={isGenerating}
@@ -427,6 +438,10 @@ const handleDownloadMIDI = async () => {
         </div>
 
       </main>
+      <AbcHelpModal 
+        isOpen={isHelpModalOpen} 
+        onClose={() => setIsHelpModalOpen(false)} 
+      />
     </div>
   );
 }
