@@ -158,7 +158,7 @@ const handleDownloadMIDI = async () => {
   };
   
   // LÓGICA DE LA IA
-  const handleGenerateAI = async () => {
+ const handleGenerateAI = async () => {
     if (!abcText.trim()) {
       alert("Escribe algo en el editor antes de pedir una propuesta.");
       return;
@@ -168,10 +168,13 @@ const handleDownloadMIDI = async () => {
     setProposals([]);
 
     try {
+      // --- LA SOLUCIÓN: Limpiamos los saltos de línea extra para que el backend no explote ---
+      const cleanAbcForAI = abcText.replace(/\n(?:\s*\n)+/g, '\n');
+
       const response = await api.post('/songs/generate-ai', {
-        abcText: abcText,
+        abcText: cleanAbcForAI, // <-- ¡Le pasamos el texto limpio!
         bars: 4, 
-        num_variations: numVariations,
+        num_variations: numVariations, 
         temperature: temperature      
       });
 
