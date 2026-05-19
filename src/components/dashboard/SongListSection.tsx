@@ -7,13 +7,14 @@ import api from '../../api/axios';
 import { getApiError } from '../../utils/errorHandler';
 import DeleteModal from '../ui/DeleteModal';
 
-// 1. Definimos las props que recibimos del Dashboard
+// 1. Añadimos onSongChange a las props
 interface SongListProps {
   searchTerm: string;
   sortOption: string;
+  onSongChange?: () => void; // <-- NUEVO
 }
 
-export default function SongListSection({ searchTerm, sortOption }: SongListProps) {
+export default function SongListSection({ searchTerm, sortOption, onSongChange }: SongListProps) {
   const { recentSongs, isLoading, refetchRecentSongs } = useRecentSongs(5);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -23,61 +24,58 @@ export default function SongListSection({ searchTerm, sortOption }: SongListProp
   const [songToDelete, setSongToDelete] = useState<{ id: number, name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  const formatDate = (isoString: string) => { /* Tu lógica actual */ 
+  const formatDate = (isoString: string) => { 
     const date = new Date(isoString);
     return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
-  const formatTime = (isoString: string) => { /* Tu lógica actual */ 
+  const formatTime = (isoString: string) => { 
     const date = new Date(isoString);
     return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   };
 
-  // --- LÓGICA DE FILTRADO Y ORDENAMIENTO ---
   const filteredAndSortedSongs = useMemo(() => {
-    // A. Filtrar por texto
     const result = recentSongs.filter((song) => 
-      
       song.song_title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-// B. Ordenar
     result.sort((a, b) => {
       if (sortOption === "recent-edit") {
-        // Miramos la última actualización (si no hay, usamos la creación)
         const dateA = new Date(a.song_last_update || a.song_created_at).getTime();
         const dateB = new Date(b.song_last_update || b.song_created_at).getTime();
         return dateB - dateA;
       }
-      
       if (sortOption === "recent-create") {
-        // Miramos ESTRICTAMENTE la fecha de creación original
         const dateA = new Date(a.song_created_at).getTime();
         const dateB = new Date(b.song_created_at).getTime();
         return dateB - dateA;
       }
-
       if (sortOption === "name-asc") return a.song_title.localeCompare(b.song_title);
       if (sortOption === "name-desc") return b.song_title.localeCompare(a.song_title);
       
       return 0;
     });
-
     return result;
   }, [recentSongs, searchTerm, sortOption]);
 
-  const handleDeleteClick = (id: number) => { /* Tu lógica actual */ 
+  const handleDeleteClick = (id: number) => { 
     const song = recentSongs.find(s => s.song_id === id);
     if (song) {
       setSongToDelete({ id, name: song.song_title });
       setIsDeleteModalOpen(true);
     }
   };
-  const handleEditClick = (id: number) => { /* Tu lógica actual */ 
+  const handleEditClick = (id: number) => { 
     setSongToEdit(id);
     setIsEditModalOpen(true);
   };
-  const handleEditSuccess = () => { refetchRecentSongs(); };
-  const handleConfirmDelete = async () => { /* Tu lógica actual */ 
+
+  // --- NUEVO: Avisamos al padre tras editar ---
+  const handleEditSuccess = () => { 
+    refetchRecentSongs(); 
+    if (onSongChange) onSongChange();
+  };
+
+  const handleConfirmDelete = async () => { 
     if (!songToDelete) return;
     setIsDeleting(true);
     try {
@@ -85,6 +83,10 @@ export default function SongListSection({ searchTerm, sortOption }: SongListProp
       refetchRecentSongs();
       setIsDeleteModalOpen(false);
       setSongToDelete(null);
+      
+      // --- NUEVO: Avisamos al padre tras borrar ---
+      if (onSongChange) onSongChange();
+      
     } catch (error) {
       alert(getApiError(error, "Error al eliminar la canción"));
     } finally {

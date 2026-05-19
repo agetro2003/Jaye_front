@@ -7,36 +7,34 @@ import api from '../../api/axios';
 import Modal from '../ui/Modal';
 import SongModal from '../song/SongModals';
 import { useNavigate } from 'react-router-dom';
-// Añadimos una 'prop' para avisar al padre (Dashboard) de que creamos algo
+
+// --- NUEVO: Añadimos refreshTrigger a las props ---
 interface DashboardHeaderProps {
   onFolderCreated?: () => void;
+  refreshTrigger?: number; 
 }
 
-export default function DashboardHeader({ onFolderCreated }: DashboardHeaderProps) {
-    const navigate = useNavigate();
+export default function DashboardHeader({ onFolderCreated, refreshTrigger = 0 }: DashboardHeaderProps) {
+  const navigate = useNavigate();
 
-  // Estados para el Modal
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [folderName, setFolderName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSongModalOpen, setIsSongModalOpen] = useState(false);
-  // Función para enviar al Backend
+
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!folderName.trim()) return; // Evita carpetas sin nombre
+    if (!folderName.trim()) return; 
 
     setIsLoading(true);
     setError('');
 
     try {
-      // Mandamos el esquema FolderCreate a FastAPI
       await api.post('/folders/', { folder_name: folderName });
-      
-      // Si todo va bien:
-      setIsFolderModalOpen(false); // Cerramos el modal
-      setFolderName(''); // Limpiamos el input
-      if (onFolderCreated) onFolderCreated(); // Avisamos al Dashboard para que recargue la lista
+      setIsFolderModalOpen(false); 
+      setFolderName(''); 
+      if (onFolderCreated) onFolderCreated(); // Avisamos al Dashboard
       
     } catch (err) {
       console.error(err);
@@ -46,9 +44,7 @@ export default function DashboardHeader({ onFolderCreated }: DashboardHeaderProp
     }
   };
 
-
   const handleSongCreated = (songId: number) => {
-    // Cuando se crea la canción, viajamos al editor con ese ID
     navigate(`/editor/${songId}`);
   };
 
@@ -61,53 +57,25 @@ export default function DashboardHeader({ onFolderCreated }: DashboardHeaderProp
         </div>
 
         <div className="flex items-center gap-3">
-          <IconButton 
-            icon={FolderPlus} 
-            text="Nueva carpeta" 
-            variant="secondary" 
-            onClick={() => setIsFolderModalOpen(true)} // <-- Abrimos el modal al hacer clic
-          />
+          <IconButton icon={FolderPlus} text="Nueva carpeta" variant="secondary" onClick={() => setIsFolderModalOpen(true)} />
           <IconButton icon={Music} text="Nueva composición" variant="primary" onClick={()=>setIsSongModalOpen(true)}/>
         </div>
       </div>
 
-      {/* EL MODAL (Ventana emergente) */}
-      <Modal
-        isOpen={isFolderModalOpen}
-        onClose={() => setIsFolderModalOpen(false)}
-        title="Crear nueva carpeta"
-        icon={<FolderPlus className="w-6 h-6" />}
-      >
+      <Modal isOpen={isFolderModalOpen} onClose={() => setIsFolderModalOpen(false)} title="Crear nueva carpeta" icon={<FolderPlus className="w-6 h-6" />}>
         <form onSubmit={handleCreateFolder} className="space-y-5">
-          <InputField
-            label="Nombre de la carpeta"
-            type="text"
-            placeholder="Ej. Banda Sonora TFM"
-            icon={Folder}
-            value={folderName}
-            onChange={(e) => setFolderName(e.target.value)}
-            required
-          />
-
+          <InputField label="Nombre de la carpeta" type="text" placeholder="Ej. Banda Sonora TFM" icon={Folder} value={folderName} onChange={(e) => setFolderName(e.target.value)} required />
           {error && <p className="text-rose-500 text-xs font-semibold">{error}</p>}
-
           <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setIsFolderModalOpen(false)}
-              className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors"
-            >
-              Cancelar
-            </button>
-            <div className="w-32">
-              <Button type="submit">
-                {isLoading ? 'Creando...' : 'Crear'}
-              </Button>
-            </div>
+            <button type="button" onClick={() => setIsFolderModalOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors">Cancelar</button>
+            <div className="w-32"><Button type="submit">{isLoading ? 'Creando...' : 'Crear'}</Button></div>
           </div>
         </form>
       </Modal>
+
+      {/* --- NUEVO: Usamos el refreshTrigger del Padre como Key --- */}
       <SongModal 
+        key={`song-modal-${refreshTrigger}`} 
         isOpen={isSongModalOpen}
         onClose={() => setIsSongModalOpen(false)}
         onSuccess={handleSongCreated}

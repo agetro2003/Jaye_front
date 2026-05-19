@@ -10,13 +10,14 @@ import { getApiError } from '../../utils/errorHandler';
 
 const PALETTE = ['bg-[#b93838]', 'bg-[#2da431]', 'bg-[#3734a9]', 'bg-[#af9e26]', 'bg-[#a5326b]'];
 
-// 1. Definimos las props
+// --- NUEVO: Añadimos onFolderChange ---
 interface FolderSectionProps {
   searchTerm: string;
   sortOption: string;
+  onFolderChange?: () => void;
 }
 
-export default function FolderSection({ searchTerm, sortOption }: FolderSectionProps) {
+export default function FolderSection({ searchTerm, sortOption, onFolderChange }: FolderSectionProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { folders, isLoading, error, updateFolderLocally, removeFolderLocally } = useFolders();
   
@@ -24,7 +25,6 @@ export default function FolderSection({ searchTerm, sortOption }: FolderSectionP
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null as number | null, name: '' });
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Estados del scroll (Tu lógica actual)
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
@@ -33,28 +33,27 @@ export default function FolderSection({ searchTerm, sortOption }: FolderSectionP
   const handleMouseUp = () => setIsDragging(false);
   const handleMouseMove = (e: React.MouseEvent) => { if (!isDragging || !scrollRef.current) return; e.preventDefault(); const x = e.pageX - scrollRef.current.offsetLeft; const walk = (x - startX) * 1.5; scrollRef.current.scrollLeft = scrollLeft - walk; };
 
-  // --- LÓGICA DE FILTRADO Y ORDENAMIENTO ---
   const filteredAndSortedFolders = useMemo(() => {
-    const result = folders.filter((folder) => 
-      folder.folder_name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
+    const result = folders.filter((folder) => folder.folder_name.toLowerCase().includes(searchTerm.toLowerCase()));
     result.sort((a, b) => {
       if (sortOption === "name-asc") return a.folder_name.localeCompare(b.folder_name);
       if (sortOption === "name-desc") return b.folder_name.localeCompare(a.folder_name);
       return 0; 
     });
-
     return result;
   }, [folders, searchTerm, sortOption]);
 
-  const handleConfirmDelete = async () => { /* Tu lógica actual */ 
+  const handleConfirmDelete = async () => { 
     if (!deleteModal.id) return;
     setIsDeleting(true);
     try {
       await api.delete(`/folders/${deleteModal.id}`);
       removeFolderLocally(deleteModal.id); 
       setDeleteModal({ isOpen: false, id: null, name: '' }); 
+      
+      // --- NUEVO: Avisamos al padre tras borrar ---
+      if (onFolderChange) onFolderChange();
+      
     } catch (err: unknown) {
       alert(getApiError(err, 'Error al eliminar la carpeta'));
     } finally {
@@ -104,7 +103,18 @@ export default function FolderSection({ searchTerm, sortOption }: FolderSectionP
             );
           })}
 
-          <EditFolderModal key={editModal.id} isOpen={editModal.isOpen} folderId={editModal.id} initialName={editModal.name} onClose={() => setEditModal({ ...editModal, isOpen: false })} onSuccess={updateFolderLocally} />
+          <EditFolderModal 
+            key={editModal.id} 
+            isOpen={editModal.isOpen} 
+            folderId={editModal.id} 
+            initialName={editModal.name} 
+            onClose={() => setEditModal({ ...editModal, isOpen: false })} 
+            onSuccess={(id, name) => {
+              updateFolderLocally(id, name);
+              // --- NUEVO: Avisamos al padre tras editar ---
+              if (onFolderChange) onFolderChange();
+            }} 
+          />
           
           <DeleteModal isOpen={deleteModal.isOpen} title="Eliminar carpeta" message={<p>¿Estás seguro de que deseas eliminar la carpeta <span className="font-bold text-slate-800">"{deleteModal.name}"</span>? Esta acción borrará permanentemente la carpeta y todas las canciones dentro.</p>} isDeleting={isDeleting} onClose={() => setDeleteModal({ ...deleteModal, isOpen: false })} onConfirm={handleConfirmDelete} />
         </div>

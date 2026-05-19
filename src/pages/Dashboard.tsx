@@ -6,9 +6,12 @@ import FolderSection from "../components/dashboard/FolderSection";
 import SongListSection from "../components/dashboard/SongListSection";
 
 export default function Dashboard() {
-  const [refreshFolders, setRefreshFolders] = useState(0);
+  // --- AHORA ES UN TRIGGER GLOBAL ---
+  const [globalUpdateTrigger, setGlobalUpdateTrigger] = useState(0);
   
-  // 1. Estados de la barra de búsqueda
+  // Cualquier cambio en la app dispara este interruptor
+  const handleDataChanged = () => setGlobalUpdateTrigger((prev) => prev + 1);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState("recent-edit");
 
@@ -17,10 +20,10 @@ export default function Dashboard() {
       <Navbar />
       <main className="max-w-300 mx-auto px-6 py-10">
         <DashboardHeader
-          onFolderCreated={() => setRefreshFolders((prev) => prev + 1)}
+          onFolderCreated={handleDataChanged} 
+          refreshTrigger={globalUpdateTrigger} 
         />
         
-        {/* 2. Le pasamos el estado al SearchBar */}
         <SearchBar 
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -28,16 +31,18 @@ export default function Dashboard() {
           onSortChange={setSortOption}
         />
         
-        {/* 3. Le pasamos las palabras clave a las secciones */}
         <FolderSection 
-          key={refreshFolders} 
+          key={`folder-section-${globalUpdateTrigger}`} // Si cambia, recarga carpetas
           searchTerm={searchTerm} 
           sortOption={sortOption} 
+          onFolderChange={handleDataChanged} 
         />
         
         <SongListSection 
+          key={`song-section-${globalUpdateTrigger}`} // Si cambia, recarga canciones
           searchTerm={searchTerm} 
           sortOption={sortOption} 
+          onSongChange={handleDataChanged} // <-- NUEVO: Canciones avisan al padre
         />
       </main>
     </div>
