@@ -1,17 +1,16 @@
 import { Music, User, LogOut } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom'; // <-- Añadimos Link aquí
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function Navbar() {
   const navigate = useNavigate();
 
-  // Función para salir
   const handleLogout = () => {
-    localStorage.removeItem('token'); // Borramos el token
-    navigate('/'); // Lo mandamos al login
+    localStorage.removeItem('token');
+    navigate('/');
   };
 
   return (
-    <nav className="bg-[#242c3d] text-white px-6 py-4 flex items-center justify-between shadow-md">
+    <nav className="bg-[#242c3d] text-white px-4 sm:px-6 py-4 flex items-center justify-between shadow-md">
       
       {/* Lado izquierdo: Logo y Nombre */}
       <div className="flex items-center gap-3">
@@ -20,23 +19,27 @@ export default function Navbar() {
       </div>
 
       {/* Lado derecho: Perfil y Cerrar Sesión */}
-      <div className="flex items-center gap-12 text-sm font-medium">
+      {/* gap-4 en móvil, gap-12 en escritorio */}
+      <div className="flex items-center gap-4 sm:gap-12 text-sm font-medium">
         
-        {/* Usamos Link en lugar de button, pero con TUS clases exactas */}
         <Link 
           to="/profile" 
           className="flex items-center gap-2 hover:text-violet-400 transition-colors"
+          title="Mi perfil"
         >
-          <User className="w-4 h-4" />
-          <span>Mi perfil</span>
+          <User className="w-5 h-5 sm:w-4 sm:h-4" />
+          {/* El texto se oculta en móvil */}
+          <span className="hidden sm:inline">Mi perfil</span>
         </Link>
         
         <button 
           className="flex items-center gap-2 text-rose-500 hover:text-rose-400 transition-colors" 
           onClick={handleLogout}
+          title="Cerrar sesión"
         >
-          <LogOut className="w-4 h-4" />
-          <span>Cerrar sesión</span>
+          <LogOut className="w-5 h-5 sm:w-4 sm:h-4" />
+          {/* El texto se oculta en móvil */}
+          <span className="hidden sm:inline">Cerrar sesión</span>
         </button>
       </div>
     </nav>

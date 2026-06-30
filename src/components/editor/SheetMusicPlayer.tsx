@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Play, Square } from 'lucide-react';
-import { useAbcAudio } from '../../hooks/useAbcAudio'; // Nuestro nuevo cerebro
+import { useAbcAudio } from '../../hooks/useAbcAudio';
 
 interface SheetMusicPlayerProps {
   abcText: string;
@@ -10,24 +10,29 @@ interface SheetMusicPlayerProps {
 
 export default function SheetMusicPlayer({ 
   abcText, 
-  instrument = 0, // Por defecto: Piano
+  instrument = 0,
   drumStyle = 'none' 
 }: SheetMusicPlayerProps) {
   
-  // La caja blanca donde abcjs va a pintar
   const paperRef = useRef<HTMLDivElement>(null);
-
-  // Le conectamos el cerebro pasándole la referencia y los datos
   const { togglePlay, isPlaying } = useAbcAudio(paperRef, abcText, instrument, drumStyle);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col h-full">
+    /*
+      En móvil: altura fija de 420px para que el SVG de abcjs tenga espacio real.
+      En lg (escritorio): h-full para llenar la altura del panel lateral.
       
-      {/* Cabecera de la Tarjeta */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-slate-900">Partitura</h2>
+      El truco: en móvil NO usamos h-full porque el padre no tiene altura definida
+      en px, solo min-h, lo que hace que flex-1 colapse a 0. Con h-[420px] el
+      contenedor tiene dimensiones reales y el absolute inset-0 funciona.
+    */
+    <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col
+                    h-[420px] lg:h-full">
+      
+      {/* Cabecera */}
+      <div className="flex items-center justify-between mb-4 shrink-0">
+        <h2 className="text-base sm:text-xl font-bold text-slate-900">Partitura</h2>
         
-        {/* Botón Reproducir / Detener */}
         <button
           onClick={togglePlay}
           className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-sm font-bold transition-all shadow-sm active:scale-95"
@@ -46,21 +51,10 @@ export default function SheetMusicPlayer({
         </button>
       </div>
 
-      {/* Contenedor del Pentagrama */}
-      {/* Contenedor del Pentagrama */}
-      {/* 1. Mantenemos flex-1 min-h-0 para que no empuje todo hacia abajo infinitamente.
-        2. relative para que el scroll se ancle bien.
-      */}
+      {/* Contenedor del pentagrama: ocupa el resto de la tarjeta */}
       <div className="flex-1 min-h-0 relative rounded-xl bg-[#fafafa] border border-slate-100">
-        
-        {/* 3. Aquí ponemos el absolute inset-0 con overflow-auto. 
-          Esto obliga al contenedor a respetar los límites de la tarjeta y habilitar el scroll si el SVG de abcjs es más grande.
-        */}
         <div className="absolute inset-0 overflow-auto p-4">
-           {/* 4. Retiramos el min-w-[600px] si abcjs ya gestiona el ancho, o lo dejamos si es necesario, 
-             pero lo importante es que el contenedor padre ahora tiene scroll vertical explícito.
-           */}
-           <div ref={paperRef} className="sheet" />
+          <div ref={paperRef} className="sheet" />
         </div>
       </div>
       
