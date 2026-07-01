@@ -108,9 +108,9 @@ export default function Login() {
             <p className="text-rose-500 text-xs font-semibold text-center pb-2">{error}</p>
           )}
           <div className="text-center pt-2 pb-3">
-            <a href="#" className="text-sm font-bold text-slate-800 hover:text-violet-600 transition-colors">
+            <Link to="/forgot-password" className="text-sm font-bold text-slate-800 hover:text-violet-600 transition-colors">
               ¿Olvidaste tu contraseña?
-            </a>
+            </Link>
           </div>
           <Button type="submit">
               {isLoading ? 'Cargando...' : 'Iniciar sesión'}
